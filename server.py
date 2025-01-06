@@ -1,9 +1,10 @@
 from flask import Flask, request, send_from_directory, jsonify
 from docxtpl import DocxTemplate
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import subprocess
-import threading
+import tempfile
+
 
 app = Flask(__name__)
 
@@ -23,54 +24,62 @@ meses = {
 }
 
 
-@app.route("/generar-carta", methods=["POST"])
+def convert_date(value):
+    # Google Sheets usa como referencia el 30 de diciembre de 1899
+    if value:
+        base_date = datetime(1899, 12, 30)
+        converted_date = base_date + timedelta(days=int(value))
+        return converted_date.strftime("%d/%m/%Y")
+    else:
+        return value
+
+
+@app.route("/generar-carta-invitacion", methods=["POST"])
 def generar_carta():
     data = request.json
     print(data)
     if not data:
         return jsonify({"error": "No se enviaron datos."}), 400
 
-    # Plantilla base
     doc = DocxTemplate("docs/carta-invitacion.docx")
 
-    # Fecha actual
     hoy = f"{datetime.now().day} de {meses[datetime.now().month]} de {datetime.now().year}"
     data["hoy"] = hoy
+    data["fecha_clase_1"] = convert_date(data.get("fecha_clase_1"))
+    data["fecha_clase_2"] = convert_date(data.get("fecha_clase_2"))
+    data["fecha_clase_3"] = convert_date(data.get("fecha_clase_3"))
+    data["fecha_clase_4"] = convert_date(data.get("fecha_clase_4"))
+    data["fecha_clase_5"] = convert_date(data.get("fecha_clase_5"))
+    data["fecha_clase_6"] = convert_date(data.get("fecha_clase_6"))
 
-    # Renderizar el documento con los datos
     doc.render(data)
 
-    # Nombre del archivo basado en docente
     docente = data.get("docente", "Desconocido").replace(".", "").title()
     file_name = f"Carta Invitacion - {docente}.docx"
-    file_path = os.path.join("docs", file_name)
-    pdf_path = file_path.replace(".docx", ".pdf")
 
-    # Guardar el archivo DOCX
-    doc.save(file_path)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        file_path = os.path.join(tmp_dir, file_name)
+        pdf_path = file_path.replace(".docx", ".pdf")
+        doc.save(file_path)
 
-    # Convertir a PDF con LibreOffice
-    subprocess.run(
-        [
-            "libreoffice",
-            "--headless",
-            "--convert-to",
-            "pdf",
-            file_path,
-            "--outdir",
-            "docs",
-        ]
-    )
+        subprocess.run(
+            [
+                "libreoffice",
+                "--headless",
+                "--convert-to",
+                "pdf",
+                file_path,
+                "--outdir",
+                tmp_dir,
+            ],
+            check=True,
+        )
 
-    # Eliminar el archivo DOCX para dejar solo el PDF
-    os.remove(file_path)
-
-    # Devolver el PDF generado
-    return send_from_directory("docs", os.path.basename(pdf_path), as_attachment=True)
+        return send_from_directory(
+            tmp_dir, os.path.basename(pdf_path), as_attachment=True
+        )
 
 
 if __name__ == "__main__":
-    # start_cloudflared(port=5000)
-
     print("Iniciando servidor Flask...")
     app.run(host="0.0.0.0", port=5000, debug=True)
