@@ -90,6 +90,7 @@ def generar_certificado_docente():
 
     hoy = f"{datetime.now().day} de {meses[datetime.now().month]} de {datetime.now().year}"
     data["hoy"] = hoy
+    data["docente"] = data.get("docente", "").title()
     data["fecha_inicio"] = convert_date(data.get("fecha_inicio"))
     data["fecha_fin"] = convert_date(data.get("fecha_fin"))
 
