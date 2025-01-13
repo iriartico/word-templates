@@ -71,6 +71,7 @@ def generar_carta_invitacion():
     for i in range(1, 7):
         data[f"fecha_clase_{i}"] = convert_date(data.get(f"fecha_clase_{i}"))
 
+    data["docente"] = data.get("docente", "").title()
     doc.render(data)
 
     docente = data.get("docente", "Desconocido").replace(".", "").title()
