@@ -101,6 +101,35 @@ def generar_certificado_docente():
     return download_file(doc, file_name)
 
 
+@app.route("/generar-cronograma-clases", methods=["POST"])
+def generar_cronograma_clases():
+    data = request.json
+    # print(data)
+    if not data:
+        return jsonify({"error": "No se enviaron datos."}), 400
+
+    doc = DocxTemplate("docs/cronograma-clases.docx")
+
+    for i in range(1, 7):
+        data[f"fecha_clase_{i}"] = convert_date(data.get(f"fecha_clase_{i}"))
+
+    # data["dias_clases"] = " ".join(
+    #     [
+    #         word.title() if word.lower() != "y" else word.lower()
+    #         for word in data["dias_clases"].split()
+    #     ]
+    # )
+    data["nombre_modulo"] = data.get("nombre_modulo", "").replace("\n", " ")
+    data["dias_clases"] = data.get("dias_clases", "").lower()
+    data["docente"] = data.get("docente", "").title()
+
+    doc.render(data)
+
+    file_name = f"Cronograma de Clases - {data["nombre_modulo"]}.docx"
+
+    return download_file(doc, file_name)
+
+
 if __name__ == "__main__":
     print("Iniciando servidor Flask...")
     app.run(host="0.0.0.0", port=5000, debug=True)
